@@ -1,0 +1,1169 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Planejamento Estratégico — Max & Acunha</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --navy:      #003c61;
+            --navy-mid:  #004d7a;
+            --gold:      #c1aa57;
+            --gold-pale: #f7f2e2;
+            --gold-dim:  rgba(193,170,87,0.18);
+            --bg:        #f3f1ea;
+            --surface:   #ffffff;
+            --border:    #e4dfd4;
+            --text:      #18181b;
+            --muted:     #6b7280;
+            --shadow-sm: 0 1px 2px rgba(0,28,46,0.05), 0 1px 8px rgba(0,28,46,0.04);
+            --shadow-md: 0 2px 6px rgba(0,28,46,0.06), 0 8px 24px rgba(0,28,46,0.05), 0 0 0 1px rgba(0,28,46,0.03);
+            --shadow-lg: 0 4px 12px rgba(0,28,46,0.08), 0 16px 40px rgba(0,28,46,0.09);
+            --transition: 180ms cubic-bezier(0.4,0,0.2,1);
+            --score-hi:  #166534;
+            --score-mid: #92400e;
+            --score-lo:  #991b1b;
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background-color: var(--bg);
+            background-image:
+                radial-gradient(ellipse at 15% 10%, rgba(193,170,87,0.04) 0%, transparent 55%),
+                radial-gradient(ellipse at 85% 85%, rgba(0,60,97,0.04) 0%, transparent 55%);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        /* Grain overlay */
+        body::before {
+            content: '';
+            position: fixed;
+            top: -50%; left: -50%;
+            width: 200%; height: 200%;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.72' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+            opacity: 0.022;
+            pointer-events: none;
+            z-index: 9999;
+        }
+
+        /* Animations */
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fillBar {
+            to { width: var(--w, 0%); }
+        }
+        @keyframes scaleIn {
+            from { opacity: 0; transform: scale(0.97); }
+            to   { opacity: 1; transform: scale(1); }
+        }
+        .view-section.active { animation: fadeUp 0.3s ease-out both; }
+
+        /* ── Header ── */
+        .header {
+            background: linear-gradient(150deg, var(--navy) 0%, var(--navy-mid) 100%);
+            position: sticky; top: 0; z-index: 40;
+        }
+        .header::after {
+            content: '';
+            display: block;
+            height: 1px;
+            background: linear-gradient(90deg, transparent 0%, rgba(193,170,87,0.5) 25%, rgba(193,170,87,0.5) 75%, transparent 100%);
+        }
+        .nav-tab {
+            padding: 0.75rem 1.25rem;
+            border-bottom: 2px solid transparent;
+            cursor: pointer; white-space: nowrap;
+            font-family: 'Inter', sans-serif;
+            font-weight: 500; font-size: 0.82rem;
+            letter-spacing: 0.04em;
+            transition: color var(--transition), border-color var(--transition);
+            color: rgba(255,255,255,0.55);
+        }
+        .nav-tab:hover { color: rgba(255,255,255,0.88); }
+        .nav-tab.active { border-bottom-color: var(--gold); color: white; }
+
+        /* ── Cards ── */
+        .card {
+            background: var(--surface);
+            border-radius: 0.75rem;
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-sm);
+            transition: box-shadow var(--transition), transform var(--transition);
+        }
+        .card-hover:hover {
+            box-shadow: var(--shadow-lg);
+            transform: translateY(-2px);
+        }
+
+        /* ── Progress ── */
+        .progress-bar { height: 6px; background: #e8e3d9; border-radius: 3px; overflow: hidden; }
+        .progress-fill {
+            height: 100%; border-radius: 3px;
+            width: 0;
+            animation: fillBar 1s cubic-bezier(0.4,0,0.2,1) 0.15s forwards;
+        }
+
+        /* ── Score badge ── */
+        .score-badge {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 3.25rem; height: 3.25rem; border-radius: 50%;
+            font-family: 'Inter', system-ui, sans-serif;
+            font-weight: 700; font-size: 1rem; letter-spacing: -0.02em;
+            flex-shrink: 0;
+        }
+        .s-hi  { background: #f0fdf4; color: var(--score-hi); box-shadow: 0 0 0 1px rgba(22,101,52,0.15); }
+        .s-mid { background: #fffbeb; color: var(--score-mid); box-shadow: 0 0 0 1px rgba(146,64,14,0.15); }
+        .s-lo  { background: #fef2f2; color: var(--score-lo); box-shadow: 0 0 0 1px rgba(153,27,27,0.15); }
+
+        /* ── Status badges ── */
+        .s-badge {
+            display: inline-flex; align-items: center; gap: 0.3rem;
+            padding: 0.2rem 0.625rem; border-radius: 9999px;
+            font-size: 0.7rem; font-weight: 600; letter-spacing: 0.02em;
+        }
+        .s-badge i { flex-shrink: 0; }
+        .s-not_started { background: #f3f2ee; color: #6b7280; }
+        .s-in_progress { background: #ddeaf6; color: var(--navy); }
+        .s-completed   { background: var(--gold-pale); color: #7a6520; }
+
+        /* ── KR type badges ── */
+        .type-badge {
+            display: inline-flex; align-items: center; gap: 0.25rem;
+            padding: 0.1rem 0.5rem; border-radius: 4px;
+            font-size: 0.65rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.08em;
+        }
+        .t-global   { background: #ddeaf6; color: var(--navy); }
+        .t-tactical { background: var(--gold-pale); color: #7a6520; }
+
+        /* ── Buttons ── */
+        .btn { cursor: pointer; font-family: 'Inter', sans-serif; font-weight: 500; transition: all var(--transition); border: none; border-radius: 0.5rem; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 0.35rem; }
+        .btn-navy   { background: var(--navy); color: white; padding: 0.5rem 1rem; }
+        .btn-navy:hover { background: var(--navy-mid); box-shadow: 0 4px 12px rgba(0,60,97,0.25); }
+        .btn-outline { background: white; color: var(--navy); border: 1px solid var(--border); padding: 0.5rem 1rem; }
+        .btn-outline:hover { background: #faf9f6; border-color: #d0cac0; }
+        .btn-red    { background: #dc2626; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; font-size: 0.85rem; font-weight: 500; cursor: pointer; border: none; display: inline-flex; align-items: center; gap: 0.35rem; transition: all var(--transition); }
+        .btn-red:hover { background: #b91c1c; }
+        .btn-icon   {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 2rem; height: 2rem; border-radius: 0.375rem; cursor: pointer;
+            background: transparent; border: 1px solid transparent; color: var(--muted);
+            transition: all var(--transition); flex-shrink: 0;
+        }
+        .btn-icon:hover { background: #f0ece4; border-color: var(--border); color: var(--text); }
+
+        /* ── Modal ── */
+        .modal-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+            z-index: 100; display: flex; align-items: center; justify-content: center; padding: 1rem;
+            backdrop-filter: blur(2px);
+        }
+        .modal {
+            background: white; border-radius: 1rem; padding: 1.75rem;
+            width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto;
+            box-shadow: var(--shadow-lg);
+            animation: scaleIn 0.2s ease-out both;
+        }
+        .modal-lg { max-width: 660px; }
+        .modal-header-line {
+            height: 2px;
+            background: linear-gradient(90deg, var(--navy), var(--gold));
+            border-radius: 2px; margin-bottom: 1.25rem;
+        }
+
+        /* ── Forms ── */
+        input, textarea, select {
+            width: 100%; padding: 0.5rem 0.75rem;
+            border: 1px solid var(--border); border-radius: 0.5rem;
+            font-size: 0.875rem; font-family: 'Inter', sans-serif;
+            background: white; color: var(--text);
+            transition: border-color var(--transition), box-shadow var(--transition);
+        }
+        input:focus, textarea:focus, select:focus {
+            outline: none; border-color: var(--navy);
+            box-shadow: 0 0 0 3px rgba(0,60,97,0.08);
+        }
+        label {
+            display: block; font-size: 0.7rem; font-weight: 700;
+            color: var(--muted); margin-bottom: 0.3rem;
+            text-transform: uppercase; letter-spacing: 0.07em;
+        }
+
+        /* ── Obj cards ── */
+        .obj-card { cursor: pointer; }
+        .obj-card-inner {
+            padding: 1.375rem 1.5rem;
+            border-top: 2px solid transparent;
+            transition: border-color var(--transition);
+        }
+        .obj-card:hover .obj-card-inner { border-top-color: var(--gold); }
+
+        /* ── KR card ── */
+        .kr-card {
+            background: #fafaf7; border: 1px solid var(--border);
+            border-radius: 0.75rem; padding: 1.125rem;
+            transition: box-shadow var(--transition), transform var(--transition);
+        }
+        .kr-card:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+
+        /* ── Sections ── */
+        .view-section { display: none; }
+        .view-section.active { display: block; }
+
+        /* ── Section label ── */
+        .section-label {
+            font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.1em; color: var(--muted);
+        }
+
+        /* ── Edit pill ── */
+        .edit-pill {
+            position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 50;
+            background: var(--navy); color: white;
+            padding: 0.5rem 0.875rem 0.5rem 1rem; border-radius: 9999px;
+            font-size: 0.78rem; font-weight: 600; letter-spacing: 0.02em;
+            display: flex; align-items: center; gap: 0.5rem;
+            box-shadow: 0 4px 16px rgba(0,60,97,0.35);
+        }
+
+        /* ── History grid ── */
+        .history-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.5rem; }
+        @media (max-width: 640px) { .history-grid { grid-template-columns: repeat(3, 1fr); } }
+
+        /* ── Mission/Vision ── */
+        .mv-card {
+            border-left: 3px solid var(--gold); background: var(--surface);
+            border-radius: 0.75rem; border: 1px solid var(--border);
+            padding: 1.25rem 1.5rem; border-left-width: 3px;
+        }
+        .mv-label { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--gold); margin-bottom: 0.6rem; display: flex; align-items: center; gap: 0.4rem; }
+        .mv-text {
+            font-family: 'Inter', system-ui, sans-serif;
+            font-size: 1rem; font-style: italic; color: var(--muted);
+            line-height: 1.7;
+        }
+        .mv-text[contenteditable="true"] { outline: none; border-bottom: 1px dashed var(--gold); padding-bottom: 2px; cursor: text; color: var(--text); }
+
+        /* ── Table ── */
+        table { width: 100%; border-collapse: collapse; }
+        th { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); padding: 0.75rem 1rem; text-align: left; background: #faf9f5; border-bottom: 1px solid var(--border); }
+        td { padding: 0.875rem 1rem; border-bottom: 1px solid #f0ece4; vertical-align: middle; font-size: 0.875rem; }
+        tr:last-child td { border-bottom: none; }
+        tbody tr { transition: background var(--transition); }
+        tbody tr:hover td { background: #faf9f5; }
+
+        /* ── Overview layout ── */
+        .overview-grid { display: grid; grid-template-columns: 1fr 1.65fr; gap: 1rem; }
+        @media (max-width: 768px) { .overview-grid { grid-template-columns: 1fr; } }
+        .obj-cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 0.875rem; }
+
+        /* ── Donut center ── */
+        .donut-wrap { position: relative; max-width: 190px; margin: 0.75rem auto; }
+        .donut-center { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; pointer-events: none; }
+        .donut-pct { font-family: 'Inter', system-ui, sans-serif; font-size: 2.6rem; font-weight: 700; line-height: 1; color: var(--navy); }
+        .donut-sub { font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-top: 0.15rem; }
+
+        /* ── Ref month selector ── */
+        .ref-select { padding: 0.3rem 0.6rem; border: 1px solid var(--border); border-radius: 0.4rem; font-size: 0.78rem; background: white; color: var(--text); cursor: pointer; width: auto; font-family: 'Inter', sans-serif; }
+        .ref-select:focus { outline: none; border-color: var(--navy); }
+
+        /* ── Reports ── */
+        .report-timeline { display: flex; flex-direction: column; }
+        .report-item { position: relative; padding: 0.875rem 0.75rem 0.875rem 1.5rem; border-left: 2px solid var(--border); margin-left: 0.625rem; }
+        .report-item::before { content: ''; position: absolute; left: -5px; top: 1.1rem; width: 8px; height: 8px; border-radius: 50%; background: var(--gold); border: 2px solid white; box-shadow: 0 0 0 1px var(--gold); }
+        .report-item:last-child { border-left-color: transparent; }
+        .report-date-author { font-size: 0.72rem; font-weight: 700; color: var(--navy); margin-bottom: 0.3rem; display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+        .report-action { font-size: 0.85rem; color: var(--text); line-height: 1.6; }
+        .report-empty { text-align: center; padding: 2rem 1rem; color: var(--muted); font-size: 0.85rem; }
+        .report-add-form { background: #faf9f5; border: 1px solid var(--border); border-radius: 0.625rem; padding: 1.125rem; margin-bottom: 1.25rem; }
+        .rep-btn-del { background: none; border: none; color: #991b1b; cursor: pointer; font-size: 0.7rem; padding: 0.15rem 0.35rem; border-radius: 4px; opacity: 0.5; transition: opacity var(--transition), background var(--transition); display: inline-flex; align-items: center; gap: 0.2rem; flex-shrink: 0; }
+        .rep-btn-del:hover { opacity: 1; background: #fee2e2; }
+
+        /* ── Lucide icon sizing helpers ── */
+        [data-lucide] { display: inline-block; vertical-align: middle; flex-shrink: 0; }
+
+        /* ── Description card ── */
+        .desc-card { background: #faf9f5; border-left: 3px solid var(--gold); border-radius: 0.625rem; padding: 0.875rem 1.125rem; margin-bottom: 1.5rem; }
+        .desc-card p { font-family: 'Inter', system-ui, sans-serif; font-size: 1.05rem; font-style: italic; color: var(--muted); line-height: 1.6; }
+    </style>
+</head>
+<body>
+
+<!-- ══ HEADER ══ -->
+<div class="header">
+    <div class="max-w-6xl mx-auto px-5 py-3">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div style="background:white;border-radius:7px;padding:5px 9px;display:flex;align-items:center;height:46px;">
+                    <img src="data:image/png;base64,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"
+                         style="height:32px;object-fit:contain;" alt="Max & Acunha Advogados">
+                </div>
+                <div>
+                    <div style="font-family:'Inter',sans-serif;font-weight:700;font-size:1.05rem;color:white;letter-spacing:0.01em;">Max & Acunha</div>
+                    <div style="font-size:0.65rem;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.07em;margin-top:1px;">Planejamento Estratégico · OKRs</div>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <div style="text-align:right;">
+                    <div style="font-size:0.6rem;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:0.08em;">Ciclo</div>
+                    <div id="period-display" style="font-family:'Inter',sans-serif;font-weight:600;color:white;font-size:1rem;cursor:pointer;" onclick="openPeriodModal()">—</div>
+                </div>
+                <button class="btn-icon" onclick="openPeriodModal()" style="color:rgba(255,255,255,0.5);" title="Configurar ciclo">
+                    <i data-lucide="settings-2" style="width:16px;height:16px;"></i>
+                </button>
+            </div>
+        </div>
+        <div class="flex overflow-x-auto" id="main-nav" style="margin-top:0.5rem;">
+            <div class="nav-tab active" onclick="showView('overview')" id="tab-overview">Visão Geral</div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ MAIN ══ -->
+<div class="max-w-6xl mx-auto px-5 py-7">
+
+    <!-- OVERVIEW -->
+    <div id="view-overview" class="view-section active">
+        <div class="flex items-center justify-between mb-6 flex-wrap gap-3">
+            <div>
+                <h2 style="font-family:'Inter',sans-serif;font-size:1.6rem;font-weight:700;line-height:1.2;">Resumo do Planejamento</h2>
+                <div id="overview-sub" style="color:var(--muted);font-size:0.82rem;margin-top:2px;"></div>
+            </div>
+            <div class="flex items-center gap-2">
+                <div style="display:flex;align-items:center;gap:0.4rem;background:white;border:1px solid var(--border);border-radius:0.5rem;padding:0.35rem 0.7rem;box-shadow:var(--shadow-sm);">
+                    <i data-lucide="calendar" style="width:13px;height:13px;color:var(--muted);"></i>
+                    <label style="font-size:0.7rem;margin:0;color:var(--muted);white-space:nowrap;">Mês ref.</label>
+                    <select id="ref-month-sel" class="ref-select" onchange="onRefMonthChange()">
+                        <option value="-1">Automático</option>
+                        <option value="0">Janeiro</option><option value="1">Fevereiro</option>
+                        <option value="2">Março</option><option value="3">Abril</option>
+                        <option value="4">Maio</option><option value="5">Junho</option>
+                        <option value="6">Julho</option><option value="7">Agosto</option>
+                        <option value="8">Setembro</option><option value="9">Outubro</option>
+                        <option value="10">Novembro</option><option value="11">Dezembro</option>
+                    </select>
+                </div>
+                <button class="btn btn-navy" onclick="toggleEditMode()" id="btn-edit">
+                    <i data-lucide="pencil-line" style="width:14px;height:14px;"></i> Editar
+                </button>
+            </div>
+        </div>
+
+        <!-- Charts -->
+        <div class="overview-grid mb-6">
+            <div class="card p-5">
+                <div class="section-label mb-1">Progresso Geral</div>
+                <div class="donut-wrap">
+                    <canvas id="donut-chart" height="190"></canvas>
+                    <div class="donut-center">
+                        <div id="donut-pct" class="donut-pct">—</div>
+                        <div class="donut-sub">Score</div>
+                    </div>
+                </div>
+                <div id="mini-scores" style="margin-top:1rem;display:flex;flex-direction:column;gap:0.7rem;"></div>
+            </div>
+            <div class="card p-5">
+                <div class="section-label mb-4">Progresso por Objetivo</div>
+                <canvas id="bar-chart" height="175"></canvas>
+            </div>
+        </div>
+
+        <!-- Mission & Vision -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.75rem;">
+            <div class="mv-card">
+                <div class="mv-label"><i data-lucide="crosshair" style="width:12px;height:12px;"></i> Missão</div>
+                <div class="mv-text" id="mv-missao" contenteditable="false"></div>
+            </div>
+            <div class="mv-card">
+                <div class="mv-label"><i data-lucide="eye" style="width:12px;height:12px;"></i> Visão</div>
+                <div class="mv-text" id="mv-visao" contenteditable="false"></div>
+            </div>
+        </div>
+
+        <!-- Obj cards -->
+        <div class="section-label mb-3">Objetivos Estratégicos</div>
+        <div id="obj-cards" class="obj-cards-grid"></div>
+    </div>
+
+    <div id="obj-views"></div>
+</div>
+
+<!-- Edit pill -->
+<div id="edit-pill" class="edit-pill" style="display:none;">
+    <i data-lucide="pencil-line" style="width:13px;height:13px;"></i>
+    Modo de Edição
+    <button class="btn-red" onclick="toggleEditMode()" style="padding:0.2rem 0.625rem;font-size:0.72rem;border-radius:5px;">
+        <i data-lucide="x" style="width:12px;height:12px;"></i> Sair
+    </button>
+</div>
+
+<!-- ══ MODALS ══ -->
+
+<!-- KR Chart -->
+<div id="modal-chart" class="modal-overlay" style="display:none;" onclick="oClose(event,'modal-chart')">
+    <div class="modal modal-lg">
+        <div class="modal-header-line"></div>
+        <div class="flex items-center justify-between mb-1">
+            <h3 id="chart-title" style="font-family:'Inter',sans-serif;font-weight:700;font-size:1.2rem;"></h3>
+            <button class="btn-icon" onclick="cm('modal-chart')"><i data-lucide="x" style="width:16px;height:16px;"></i></button>
+        </div>
+        <div id="chart-meta" style="font-size:0.78rem;color:var(--muted);margin-bottom:1.25rem;"></div>
+        <canvas id="kr-chart" height="130"></canvas>
+        <div class="flex justify-end mt-4"><button class="btn btn-outline" onclick="cm('modal-chart')">Fechar</button></div>
+    </div>
+</div>
+
+<!-- Period -->
+<div id="modal-period" class="modal-overlay" style="display:none;" onclick="oClose(event,'modal-period')">
+    <div class="modal">
+        <div class="modal-header-line"></div>
+        <h3 style="font-family:'Inter',sans-serif;font-weight:700;font-size:1.2rem;margin-bottom:1.25rem;">Configurar Ciclo</h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">
+            <div><label>Ano</label><input type="number" id="p-year" min="2020" max="2040"></div>
+            <div><label>Trimestre</label>
+                <select id="p-quarter">
+                    <option value="Q1">Q1 — Jan/Mar</option><option value="Q2">Q2 — Abr/Jun</option>
+                    <option value="Q3">Q3 — Jul/Set</option><option value="Q4">Q4 — Out/Dez</option>
+                    <option value="Anual">Anual</option>
+                </select>
+            </div>
+        </div>
+        <div class="flex justify-end gap-2 mt-5">
+            <button class="btn btn-outline" onclick="cm('modal-period')">Cancelar</button>
+            <button class="btn btn-navy" onclick="savePeriod()">Salvar</button>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Objective -->
+<div id="modal-obj" class="modal-overlay" style="display:none;" onclick="oClose(event,'modal-obj')">
+    <div class="modal">
+        <div class="modal-header-line"></div>
+        <h3 id="modal-obj-h" style="font-family:'Inter',sans-serif;font-weight:700;font-size:1.2rem;margin-bottom:1.25rem;"></h3>
+        <input type="hidden" id="obj-id">
+        <div style="display:grid;gap:0.75rem;">
+            <div><label>Título do Objetivo</label><input type="text" id="obj-title" placeholder="Ex: Crescer a base de clientes"></div>
+            <div><label>Descrição</label><textarea id="obj-desc" rows="3" placeholder="Descreva o objetivo estratégico..."></textarea></div>
+            <div><label>Responsável(eis)</label><textarea id="obj-owner" rows="2" placeholder="Ex: Dr. Max&#10;Dr. Acunha"></textarea></div>
+        </div>
+        <div class="flex justify-end gap-2 mt-5">
+            <button class="btn btn-outline" onclick="cm('modal-obj')">Cancelar</button>
+            <button class="btn btn-navy" onclick="saveObjective()">Salvar</button>
+        </div>
+    </div>
+</div>
+
+<!-- Edit KR -->
+<div id="modal-kr" class="modal-overlay" style="display:none;" onclick="oClose(event,'modal-kr')">
+    <div class="modal modal-lg">
+        <div class="modal-header-line"></div>
+        <h3 id="modal-kr-h" style="font-family:'Inter',sans-serif;font-weight:700;font-size:1.2rem;margin-bottom:1.25rem;"></h3>
+        <input type="hidden" id="kr-obj-id"><input type="hidden" id="kr-id">
+        <div style="display:grid;gap:0.75rem;">
+            <div><label>Título do Resultado-Chave</label><input type="text" id="kr-title" placeholder="Ex: Taxa de conversão de leads"></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.75rem;">
+                <div><label>Tipo</label><select id="kr-type"><option value="global">Global</option><option value="tactical">Tático</option></select></div>
+                <div><label>Unidade</label><input type="text" id="kr-unit" placeholder="%, R$, un…"></div>
+                <div><label>Meta</label><input type="number" id="kr-target" step="any" placeholder="Ex: 100"></div>
+            </div>
+            <div>
+                <label>Histórico Mensal <span style="font-weight:400;text-transform:none;letter-spacing:0;">(vazio = sem dado)</span></label>
+                <div id="history-inputs" class="history-grid" style="margin-top:0.5rem;"></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:0.5rem;padding:0.625rem 0.75rem;background:#fef9c3;border-radius:0.5rem;border:1px solid #fde047;">
+                <input type="checkbox" id="kr-inverse" style="width:auto;margin:0;flex-shrink:0;">
+                <label style="text-transform:none;letter-spacing:0;font-size:0.8rem;margin:0;color:#92400e;">Menor é melhor (ex: tempo de resposta, inadimplência)</label>
+            </div>
+        </div>
+        <div class="flex justify-end gap-2 mt-5">
+            <button class="btn btn-outline" onclick="cm('modal-kr')">Cancelar</button>
+            <button class="btn btn-navy" onclick="saveKR()">Salvar</button>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Initiative -->
+<div id="modal-init" class="modal-overlay" style="display:none;" onclick="oClose(event,'modal-init')">
+    <div class="modal">
+        <div class="modal-header-line"></div>
+        <h3 id="modal-init-h" style="font-family:'Inter',sans-serif;font-weight:700;font-size:1.2rem;margin-bottom:1.25rem;"></h3>
+        <input type="hidden" id="init-obj-id"><input type="hidden" id="init-id">
+        <div style="display:grid;gap:0.75rem;">
+            <div><label>Título</label><input type="text" id="init-title" placeholder="Ex: Programa de indicação de clientes"></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">
+                <div><label>Responsável(eis)</label><input type="text" id="init-owner" placeholder="Ex: Dr. Max, Dr. Acunha"></div>
+                <div><label>Prazo</label><input type="date" id="init-deadline"></div>
+            </div>
+            <div><label>Status</label>
+                <select id="init-status">
+                    <option value="not_started">Não Iniciado</option>
+                    <option value="in_progress">Em Andamento</option>
+                    <option value="completed">Finalizado</option>
+                </select>
+            </div>
+            <div><label>Observações</label><textarea id="init-desc" rows="2" placeholder="Notas, próximos passos…"></textarea></div>
+        </div>
+        <div class="flex justify-between items-center mt-5">
+            <button class="btn-red" id="btn-del-init" onclick="deleteInit()" style="display:none;">
+                <i data-lucide="trash-2" style="width:14px;height:14px;"></i> Excluir
+            </button>
+            <div class="flex gap-2">
+                <button class="btn btn-outline" onclick="cm('modal-init')">Cancelar</button>
+                <button class="btn btn-navy" onclick="saveInit()">Salvar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Reports -->
+<div id="modal-reports" class="modal-overlay" style="display:none;" onclick="oClose(event,'modal-reports')">
+    <div class="modal modal-lg">
+        <div class="modal-header-line"></div>
+        <div class="flex items-center justify-between mb-1">
+            <h3 style="font-family:'Inter',sans-serif;font-weight:700;font-size:1.2rem;display:flex;align-items:center;gap:0.4rem;">
+                <i data-lucide="clipboard-list" style="width:18px;height:18px;color:var(--gold);"></i> Reportes
+            </h3>
+            <button class="btn-icon" onclick="cm('modal-reports')"><i data-lucide="x" style="width:16px;height:16px;"></i></button>
+        </div>
+        <div id="rep-init-name" style="font-family:'Inter',sans-serif;font-size:0.95rem;color:var(--muted);margin-bottom:1.25rem;font-style:italic;"></div>
+        <div class="report-add-form">
+            <div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:0.09em;color:var(--navy);margin-bottom:0.875rem;display:flex;align-items:center;gap:0.35rem;">
+                <i data-lucide="plus-circle" style="width:13px;height:13px;"></i> Novo Reporte
+            </div>
+            <input type="hidden" id="rep-obj-id"><input type="hidden" id="rep-init-id">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.625rem;margin-bottom:0.625rem;">
+                <div><label>Responsável</label><input type="text" id="rep-author" placeholder="Ex: Dr. Max"></div>
+                <div><label>Data</label><input type="date" id="rep-date"></div>
+            </div>
+            <div style="margin-bottom:0.75rem;"><label>O que foi realizado?</label><textarea id="rep-action" rows="3" placeholder="Descreva a ação tomada, o que foi feito e qual resultado foi alcançado…"></textarea></div>
+            <div class="flex justify-end">
+                <button class="btn btn-navy" onclick="addReport()" style="font-size:0.82rem;">
+                    <i data-lucide="check" style="width:13px;height:13px;"></i> Adicionar Reporte
+                </button>
+            </div>
+        </div>
+        <div class="section-label mb-3">Histórico</div>
+        <div id="rep-timeline" class="report-timeline"></div>
+        <div class="flex justify-end mt-4"><button class="btn btn-outline" onclick="cm('modal-reports')">Fechar</button></div>
+    </div>
+</div>
+
+<!-- Confirm -->
+<div id="modal-confirm" class="modal-overlay" style="display:none;" onclick="oClose(event,'modal-confirm')">
+    <div class="modal" style="max-width:400px;">
+        <div class="modal-header-line"></div>
+        <h3 style="font-family:'Inter',sans-serif;font-weight:700;font-size:1.2rem;margin-bottom:0.75rem;display:flex;align-items:center;gap:0.4rem;">
+            <i data-lucide="alert-triangle" style="width:18px;height:18px;color:#dc2626;"></i> Confirmar exclusão
+        </h3>
+        <p id="confirm-msg" style="color:var(--muted);font-size:0.875rem;margin-bottom:1.25rem;line-height:1.6;"></p>
+        <div class="flex justify-end gap-2">
+            <button class="btn btn-outline" onclick="cm('modal-confirm')">Cancelar</button>
+            <button class="btn-red" onclick="runConfirm()">
+                <i data-lucide="trash-2" style="width:13px;height:13px;"></i> Excluir
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ══ SCRIPT ══ -->
+<script>
+const MONTHS = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+const KEY = 'maxacunha_okr_v3';
+
+// ── Icon helper ──
+function ic(name, size=15, style='') {
+    return `<i data-lucide="${name}" style="width:${size}px;height:${size}px;vertical-align:middle;flex-shrink:0;${style}"></i>`;
+}
+
+const DEFAULT = {
+    period:'2026', quarter:'Q2',
+    mission:'Prover soluções jurídicas ágeis e eficazes, permitindo que clientes exerçam suas atividades com segurança e tranquilidade.',
+    vision:'Ser referência pela excelência técnica, atuação estratégica e entrega de soluções jurídicas eficazes, com uma marca forte e uma equipe altamente qualificada.',
+    objectives:[
+        { id:'obj_1', title:'Crescer a base de clientes e a receita',
+          description:'Ampliar a captação de novos clientes e aumentar o faturamento por meio de estratégias comerciais e de relacionamento.',
+          owner:'Dr. Max\nDr. Acunha',
+          keyResults:[
+            { id:'kr_1_1', title:'Taxa de conversão de leads',       type:'global',   unit:'%',   target:35,  inverse:false, history:[10,15,18,22,25,null,null,null,null,null,null,null] },
+            { id:'kr_1_2', title:'Novos contratos fechados no ciclo', type:'global',   unit:'un',  target:20,  inverse:false, history:[2,3,4,4,null,null,null,null,null,null,null,null] },
+            { id:'kr_1_3', title:'Faturamento mensal médio',          type:'tactical', unit:'R$k', target:150, inverse:false, history:[80,92,105,110,null,null,null,null,null,null,null,null] }
+          ],
+          initiatives:[
+            { id:'i_1_1', title:'Programa de indicação de clientes', owner:'Dr. Max',    deadline:'2026-06-30', status:'in_progress', description:'', reports:[] },
+            { id:'i_1_2', title:'Presença ativa em eventos da OAB',  owner:'Dr. Acunha', deadline:'2026-09-30', status:'not_started', description:'', reports:[] }
+          ]
+        },
+        { id:'obj_2', title:'Elevar a qualidade e eficiência dos processos jurídicos',
+          description:'Otimizar os fluxos internos para reduzir prazos, aumentar a qualidade das entregas e melhorar a experiência do cliente.',
+          owner:'Dr. Acunha',
+          keyResults:[
+            { id:'kr_2_1', title:'NPS — Satisfação do cliente',       type:'global',   unit:'pts', target:70, inverse:false, history:[42,48,55,58,null,null,null,null,null,null,null,null] },
+            { id:'kr_2_2', title:'Tempo médio de resposta ao cliente', type:'tactical', unit:'hrs', target:4,  inverse:true,  history:[24,18,12,8,null,null,null,null,null,null,null,null] },
+            { id:'kr_2_3', title:'Processos sem erro de prazo',        type:'tactical', unit:'%',   target:98, inverse:false, history:[85,88,91,93,null,null,null,null,null,null,null,null] }
+          ],
+          initiatives:[
+            { id:'i_2_1', title:'Implantação de software de gestão processual', owner:'Dr. Max',    deadline:'2026-07-31', status:'in_progress', description:'', reports:[] },
+            { id:'i_2_2', title:'Treinamento em gestão de prazos',              owner:'Dr. Acunha', deadline:'2026-05-31', status:'completed',   description:'', reports:[] }
+          ]
+        },
+        { id:'obj_3', title:'Fortalecer a marca e a reputação do escritório',
+          description:'Posicionar Max & Acunha como referência em advocacia empresarial na região por meio de marketing jurídico e networking estratégico.',
+          owner:'Dr. Max',
+          keyResults:[
+            { id:'kr_3_1', title:'Seguidores nas redes sociais',  type:'tactical', unit:'un', target:5000, inverse:false, history:[1200,1450,1750,2100,null,null,null,null,null,null,null,null] },
+            { id:'kr_3_2', title:'Artigos jurídicos publicados',  type:'tactical', unit:'un', target:12,   inverse:false, history:[1,2,4,5,null,null,null,null,null,null,null,null] },
+            { id:'kr_3_3', title:'Parcerias empresariais ativas', type:'global',   unit:'un', target:8,    inverse:false, history:[1,2,2,3,null,null,null,null,null,null,null,null] }
+          ],
+          initiatives:[
+            { id:'i_3_1', title:'Estratégia de conteúdo no LinkedIn',  owner:'Dr. Acunha', deadline:'2026-12-31', status:'in_progress', description:'', reports:[] },
+            { id:'i_3_2', title:'Participação em câmaras empresariais', owner:'Dr. Max',    deadline:'2026-08-31', status:'not_started', description:'', reports:[] }
+          ]
+        }
+    ]
+};
+
+// ── State ──
+let D = JSON.parse(localStorage.getItem(KEY) || 'null') || structuredClone(DEFAULT);
+D.objectives.forEach(o => o.initiatives.forEach(i => { if (!i.reports) i.reports = []; }));
+
+let editMode = false, currentView = 'overview', refMonth = -1;
+let krChart = null, donutChart = null, barChart = null;
+let pendingConfirm = null;
+
+function persist() { localStorage.setItem(KEY, JSON.stringify(D)); }
+
+// ── Calc ──
+function krCurrent(kr) {
+    for (let i = (refMonth >= 0 ? refMonth : 11); i >= 0; i--) {
+        if (kr.history[i] !== null && kr.history[i] !== undefined && kr.history[i] !== '') return kr.history[i];
+    }
+    return 0;
+}
+function krScore(kr) {
+    const c = krCurrent(kr);
+    if (!kr.target) return 0;
+    if (kr.inverse) {
+        const first = kr.history.find(v => v !== null && v !== undefined && v !== '');
+        if (first == null) return 0;
+        const drop = first - c, needed = first - kr.target;
+        return needed <= 0 ? 0 : Math.min(1, Math.max(0, drop / needed));
+    }
+    return Math.min(1, Math.max(0, c / kr.target));
+}
+function objScore(obj) {
+    if (!obj.keyResults.length) return 0;
+    return obj.keyResults.reduce((s, kr) => s + krScore(kr), 0) / obj.keyResults.length;
+}
+function overallScore() {
+    if (!D.objectives.length) return 0;
+    return D.objectives.reduce((s, o) => s + objScore(o), 0) / D.objectives.length;
+}
+function pct(s) { return Math.round(s * 100); }
+function scoreColor(s) { return s >= 0.7 ? 'var(--score-hi)' : s >= 0.4 ? 'var(--score-mid)' : 'var(--score-lo)'; }
+function scoreClass(s) { return s >= 0.7 ? 's-hi' : s >= 0.4 ? 's-mid' : 's-lo'; }
+
+const SL = { not_started:'Não Iniciado', in_progress:'Em Andamento', completed:'Finalizado' };
+const SI = {
+    not_started: ic('circle', 11, 'opacity:0.55;'),
+    in_progress: ic('clock', 11),
+    completed:   ic('check-circle-2', 11)
+};
+
+// ── Render ──
+function render() {
+    renderNav(); renderOverview(); renderObjViews(); renderPeriod();
+    showView(currentView, false);
+    requestAnimationFrame(() => lucide.createIcons());
+}
+
+function renderNav() {
+    const nav = document.getElementById('main-nav');
+    nav.querySelectorAll('.dyn').forEach(e => e.remove());
+    D.objectives.forEach((obj, i) => {
+        const t = document.createElement('div');
+        t.className = 'nav-tab dyn'; t.id = `tab-obj-${obj.id}`;
+        t.textContent = `Obj. ${i+1}`; t.title = obj.title;
+        t.onclick = () => showView(`obj-${obj.id}`);
+        nav.appendChild(t);
+    });
+    if (editMode) {
+        const a = document.createElement('div');
+        a.className = 'nav-tab dyn'; a.style.color = 'rgba(255,255,255,0.35)';
+        a.textContent = '+ Objetivo'; a.onclick = openAddObjModal;
+        nav.appendChild(a);
+    }
+}
+
+function renderOverview() {
+    const score = overallScore();
+    document.getElementById('overview-sub').textContent = `${D.period} · ${D.quarter}`;
+    document.getElementById('btn-edit').innerHTML = editMode
+        ? `${ic('x',14)} Sair da edição`
+        : `${ic('pencil-line',14)} Editar`;
+
+    const p = pct(score);
+    document.getElementById('donut-pct').textContent = p + '%';
+    const dCtx = document.getElementById('donut-chart').getContext('2d');
+    if (donutChart) donutChart.destroy();
+    donutChart = new Chart(dCtx, {
+        type:'doughnut',
+        data:{ datasets:[{ data:[p, 100-p], backgroundColor:['#c1aa57','#e8e3d9'], borderWidth:0 }] },
+        options:{ cutout:'78%', responsive:true, plugins:{ legend:{ display:false }, tooltip:{ enabled:false } } }
+    });
+
+    const ms = document.getElementById('mini-scores');
+    ms.innerHTML = D.objectives.map((obj, i) => {
+        const sc = objScore(obj);
+        return `<div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:0.78rem;">
+                <span style="color:var(--muted);font-weight:500;">Obj. ${i+1}</span>
+                <span style="font-family:'Inter',sans-serif;font-weight:700;font-size:0.95rem;color:var(--navy);">${pct(sc)}%</span>
+            </div>
+            <div class="progress-bar"><div class="progress-fill" style="--w:${pct(sc)}%;background:var(--gold);"></div></div>
+        </div>`;
+    }).join('');
+
+    const bCtx = document.getElementById('bar-chart').getContext('2d');
+    if (barChart) barChart.destroy();
+    barChart = new Chart(bCtx, {
+        type:'bar',
+        data:{
+            labels: D.objectives.map((o,i) => `Obj. ${i+1} — ${o.title.length>28 ? o.title.slice(0,28)+'…' : o.title}`),
+            datasets:[{
+                label:'Progresso (%)',
+                data: D.objectives.map(o => pct(objScore(o))),
+                backgroundColor: 'rgba(0,60,97,0.75)',
+                borderColor: '#003c61',
+                borderWidth: 1.5, borderRadius: 5
+            }]
+        },
+        options:{
+            indexAxis:'y', responsive:true,
+            plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label: ctx => ` ${ctx.raw}%` } } },
+            scales:{
+                x:{ min:0, max:100, grid:{ color:'#f0ece4' }, ticks:{ callback: v => v+'%', font:{ size:11, family:"'Inter', sans-serif" } } },
+                y:{ grid:{ display:false }, ticks:{ font:{ size:11, family:"'Inter', sans-serif" }, color:'#374151' } }
+            }
+        }
+    });
+
+    document.getElementById('mv-missao').textContent = D.mission || '';
+    document.getElementById('mv-visao').textContent  = D.vision  || '';
+    const ce = editMode ? 'true' : 'false';
+    document.getElementById('mv-missao').setAttribute('contenteditable', ce);
+    document.getElementById('mv-visao').setAttribute('contenteditable', ce);
+    if (editMode) {
+        document.getElementById('mv-missao').oninput = () => { D.mission = document.getElementById('mv-missao').textContent; persist(); };
+        document.getElementById('mv-visao').oninput  = () => { D.vision  = document.getElementById('mv-visao').textContent; persist(); };
+    }
+
+    const c = document.getElementById('obj-cards'); c.innerHTML = '';
+    D.objectives.forEach((obj, i) => {
+        const sc = objScore(obj);
+        const doneI = obj.initiatives.filter(x => x.status==='completed').length;
+        const card = document.createElement('div');
+        card.className = 'card card-hover obj-card';
+        card.innerHTML = `<div class="obj-card-inner">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:0.875rem;">
+                <div style="flex:1;margin-right:0.75rem;">
+                    <div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.11em;color:var(--navy);margin-bottom:0.3rem;">Objetivo ${i+1}</div>
+                    <div style="font-family:'Inter',sans-serif;font-weight:700;font-size:1.1rem;line-height:1.35;">${obj.title}</div>
+                    <div style="font-size:0.75rem;color:var(--muted);margin-top:0.25rem;display:flex;align-items:flex-start;gap:0.3rem;white-space:pre-line;">${ic('user',12,'margin-top:2px;opacity:0.6;')} ${obj.owner||'—'}</div>
+                </div>
+                <div class="score-badge ${scoreClass(sc)}">${pct(sc)}%</div>
+            </div>
+            <div class="progress-bar mb-3"><div class="progress-fill" style="--w:${pct(sc)}%;background:var(--navy);"></div></div>
+            <div style="display:flex;gap:1.25rem;font-size:0.77rem;color:var(--muted);">
+                <span style="display:flex;align-items:center;gap:0.3rem;">${ic('bar-chart-2',13)} ${obj.keyResults.length} KRs</span>
+                <span style="display:flex;align-items:center;gap:0.3rem;">${ic('check-circle-2',13)} ${doneI}/${obj.initiatives.length} iniciativas</span>
+            </div>
+            <div style="text-align:right;margin-top:0.75rem;display:flex;align-items:center;justify-content:flex-end;gap:0.25rem;font-size:0.77rem;font-weight:600;color:var(--navy);">Ver detalhes ${ic('arrow-right',13)}</div>
+        </div>`;
+        card.onclick = () => showView(`obj-${obj.id}`);
+        c.appendChild(card);
+    });
+    if (editMode) {
+        const add = document.createElement('div');
+        add.className = 'card'; add.style.cssText = 'border:2px dashed var(--border);cursor:pointer;display:flex;align-items:center;justify-content:center;min-height:160px;border-radius:0.75rem;';
+        add.innerHTML = `<div style="text-align:center;color:var(--muted);">${ic('plus-circle',28,'opacity:0.4;display:block;margin:0 auto 0.5rem;')}<div style="font-size:0.875rem;font-weight:600;">Novo Objetivo</div></div>`;
+        add.onclick = openAddObjModal;
+        c.appendChild(add);
+    }
+}
+
+function renderObjViews() {
+    const c = document.getElementById('obj-views'); c.innerHTML = '';
+    D.objectives.forEach((obj, i) => {
+        const sc = objScore(obj);
+        const div = document.createElement('div');
+        div.id = `view-obj-${obj.id}`; div.className = 'view-section';
+        div.innerHTML = `
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:0.875rem;">
+                <div style="display:flex;align-items:flex-start;gap:0.75rem;">
+                    <button class="btn btn-outline" onclick="showView('overview')" style="padding:0.375rem 0.75rem;font-size:0.8rem;margin-top:4px;">
+                        ${ic('arrow-left',14)} Voltar
+                    </button>
+                    <div>
+                        <div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.11em;color:var(--navy);">Objetivo ${i+1}</div>
+                        <h2 style="font-family:'Inter',sans-serif;font-size:1.55rem;font-weight:700;line-height:1.25;margin-top:0.15rem;">${obj.title}</h2>
+                        <div style="font-size:0.8rem;color:var(--muted);margin-top:0.2rem;display:flex;align-items:flex-start;gap:0.3rem;white-space:pre-line;">${ic('user',13,'opacity:0.6;margin-top:2px;')} ${obj.owner||'—'}</div>
+                    </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:0.625rem;">
+                    <div class="score-badge ${scoreClass(sc)}" style="width:3.5rem;height:3.5rem;font-size:1.1rem;">${pct(sc)}%</div>
+                    <button class="btn ${editMode ? 'btn-red' : 'btn-navy'}" onclick="toggleEditMode()" style="font-size:0.8rem;padding:0.375rem 0.875rem;">
+                        ${editMode ? `${ic('x',13)} Sair` : `${ic('pencil-line',13)} Editar`}
+                    </button>
+                    ${editMode ? `
+                        <button class="btn-icon" onclick="openEditObjModal('${obj.id}')" title="Configurar objetivo">${ic('settings',15)}</button>
+                        <button class="btn-icon" onclick="confirmDeleteObj('${obj.id}')" style="color:#991b1b;" title="Excluir objetivo">${ic('trash-2',15)}</button>
+                    ` : ''}
+                </div>
+            </div>
+            ${obj.description ? `<div class="desc-card"><p>"${obj.description}"</p></div>` : ''}
+
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.875rem;">
+                <div style="display:flex;align-items:center;gap:0.5rem;">
+                    ${ic('bar-chart-2',16,'color:var(--navy);')}
+                    <span style="font-family:'Inter',sans-serif;font-weight:700;font-size:1.15rem;">Resultados-Chave</span>
+                </div>
+                ${editMode ? `<button class="btn btn-navy" onclick="openAddKRModal('${obj.id}')" style="font-size:0.8rem;padding:0.35rem 0.75rem;">${ic('plus',13)} Adicionar KR</button>` : ''}
+            </div>
+            <div id="kr-list-${obj.id}" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:0.75rem;margin-bottom:2rem;">${renderKRCards(obj)}</div>
+
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.875rem;">
+                <div style="display:flex;align-items:center;gap:0.5rem;">
+                    ${ic('zap',16,'color:var(--navy);')}
+                    <span style="font-family:'Inter',sans-serif;font-weight:700;font-size:1.15rem;">Iniciativas</span>
+                </div>
+                ${editMode ? `<button class="btn btn-navy" onclick="openAddInitModal('${obj.id}')" style="font-size:0.8rem;padding:0.35rem 0.75rem;">${ic('plus',13)} Adicionar</button>` : ''}
+            </div>
+            <div class="card overflow-hidden">${renderInitTable(obj)}</div>
+        `;
+        c.appendChild(div);
+    });
+}
+
+function renderKRCards(obj) {
+    if (!obj.keyResults.length) return `<p style="color:var(--muted);font-size:0.875rem;grid-column:1/-1;">Nenhum resultado-chave cadastrado.</p>`;
+    return obj.keyResults.map(kr => {
+        const sc = krScore(kr), cur = krCurrent(kr), col = scoreColor(sc), p = pct(sc);
+        return `<div class="kr-card">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:0.625rem;">
+                <div style="flex:1;margin-right:0.5rem;">
+                    <span class="type-badge t-${kr.type}">${ic(kr.type==='global'?'globe':'layers',9)} ${kr.type==='global'?'Global':'Tático'}</span>
+                    ${kr.inverse ? `<span style="font-size:0.64rem;background:#fef9c3;color:#92400e;padding:0.1rem 0.4rem;border-radius:4px;margin-left:0.25rem;font-weight:700;">${ic('arrow-down',9)} menor</span>` : ''}
+                    <div style="font-family:'Inter',sans-serif;font-weight:600;font-size:0.875rem;margin-top:0.4rem;line-height:1.4;">${kr.title}</div>
+                </div>
+                <div style="display:flex;gap:0.25rem;flex-shrink:0;">
+                    <button class="btn-icon" onclick="openKRChart('${obj.id}','${kr.id}')" title="Ver histórico">${ic('trending-up',14)}</button>
+                    ${editMode ? `<button class="btn-icon" onclick="openEditKRModal('${obj.id}','${kr.id}')">${ic('pencil',14)}</button>
+                    <button class="btn-icon" onclick="confirmDeleteKR('${obj.id}','${kr.id}')" style="color:#991b1b;">${ic('trash-2',14)}</button>` : ''}
+                </div>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.375rem;font-size:0.77rem;color:var(--muted);">
+                <span>Atual: <strong style="color:var(--text);font-family:'Inter',sans-serif;font-size:1rem;">${cur} ${kr.unit}</strong></span>
+                <span>Meta: <strong style="font-family:'Inter',sans-serif;font-size:1rem;">${kr.target} ${kr.unit}</strong></span>
+            </div>
+            <div class="progress-bar mb-1"><div class="progress-fill" style="--w:${p}%;background:var(--navy);"></div></div>
+            <div style="text-align:right;font-size:0.75rem;font-weight:700;color:${col};margin-top:0.25rem;">${p}% concluído</div>
+        </div>`;
+    }).join('');
+}
+
+function renderInitTable(obj) {
+    if (!obj.initiatives.length) return `<div style="padding:2rem;text-align:center;color:var(--muted);font-size:0.875rem;">${ic('inbox',20,'display:block;margin:0 auto 0.5rem;opacity:0.3;')}Nenhuma iniciativa cadastrada.</div>`;
+    const today = new Date();
+    const rows = obj.initiatives.map(ini => {
+        const dl = ini.deadline ? new Date(ini.deadline+'T12:00:00') : null;
+        const overdue = dl && ini.status!=='completed' && dl<today;
+        const dlStr = dl ? dl.toLocaleDateString('pt-BR') : '—';
+        const repCount = (ini.reports||[]).length;
+        return `<tr>
+            <td>
+                <div style="font-weight:600;font-size:0.875rem;">${ini.title}</div>
+                ${ini.description ? `<div style="font-size:0.75rem;color:var(--muted);margin-top:0.15rem;">${ini.description}</div>` : ''}
+            </td>
+            <td style="white-space:nowrap;font-size:0.82rem;color:var(--muted);">
+                <span style="display:flex;align-items:center;gap:0.3rem;">${ic('user',12,'opacity:0.55;')} ${ini.owner||'—'}</span>
+            </td>
+            <td style="white-space:nowrap;font-size:0.82rem;color:${overdue?'#991b1b':'var(--muted)'};">
+                <span style="display:flex;align-items:center;gap:0.3rem;">${ic(overdue?'alert-triangle':'calendar',12,overdue?'':'opacity:0.55;')} ${dlStr}</span>
+            </td>
+            <td style="white-space:nowrap;"><span class="s-badge s-${ini.status}">${SI[ini.status]} ${SL[ini.status]}</span></td>
+            <td style="white-space:nowrap;">
+                <button onclick="openReportsModal('${obj.id}','${ini.id}')"
+                    style="display:inline-flex;align-items:center;gap:0.3rem;background:${repCount>0?'var(--gold-pale)':'#f3f2ee'};border:1px solid ${repCount>0?'rgba(193,170,87,0.4)':'var(--border)'};color:${repCount>0?'#7a6520':'var(--muted)'};border-radius:6px;padding:0.25rem 0.625rem;font-size:0.72rem;font-weight:600;cursor:pointer;transition:all var(--transition);"
+                    title="Ver reportes">
+                    ${ic('clipboard-list',12)} ${repCount>0 ? repCount+(repCount===1?' reporte':' reportes') : 'Reportar'}
+                </button>
+            </td>
+            ${editMode ? `<td style="padding:0.875rem 0.5rem;"><button class="btn-icon" onclick="openEditInitModal('${obj.id}','${ini.id}')">${ic('pencil',14)}</button></td>` : ''}
+        </tr>`;
+    }).join('');
+    return `<table><thead><tr>
+        <th>Iniciativa</th><th>Responsável</th><th>Prazo</th><th>Status</th><th>Reportes</th>
+        ${editMode?'<th></th>':''}
+    </tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+// ── Navigation ──
+function showView(id, scroll=true) {
+    currentView = id;
+    document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+    const v = document.getElementById(`view-${id}`);
+    if (v) v.classList.add('active');
+    else { currentView='overview'; document.getElementById('view-overview').classList.add('active'); }
+    const t = document.getElementById(`tab-${id}`);
+    if (t) t.classList.add('active'); else document.getElementById('tab-overview').classList.add('active');
+    if (scroll) window.scrollTo(0,0);
+    requestAnimationFrame(() => lucide.createIcons());
+}
+
+// ── Edit mode ──
+function toggleEditMode() {
+    editMode = !editMode;
+    document.getElementById('edit-pill').style.display = editMode ? 'flex' : 'none';
+    render();
+}
+
+// ── Ref month ──
+function onRefMonthChange() {
+    refMonth = parseInt(document.getElementById('ref-month-sel').value);
+    render();
+}
+
+// ── Period ──
+function renderPeriod() { document.getElementById('period-display').textContent = `${D.period} · ${D.quarter}`; }
+function openPeriodModal() {
+    document.getElementById('p-year').value = D.period;
+    document.getElementById('p-quarter').value = D.quarter;
+    om('modal-period');
+}
+function savePeriod() {
+    D.period = document.getElementById('p-year').value;
+    D.quarter = document.getElementById('p-quarter').value;
+    persist(); cm('modal-period'); render();
+}
+
+// ── Objective CRUD ──
+function openAddObjModal() {
+    document.getElementById('obj-id').value = '';
+    ['obj-title','obj-desc','obj-owner'].forEach(id => document.getElementById(id).value='');
+    document.getElementById('modal-obj-h').textContent = 'Novo Objetivo';
+    om('modal-obj');
+}
+function openEditObjModal(id) {
+    const o = D.objectives.find(x => x.id===id); if (!o) return;
+    document.getElementById('obj-id').value = o.id;
+    document.getElementById('obj-title').value = o.title;
+    document.getElementById('obj-desc').value = o.description||'';
+    document.getElementById('obj-owner').value = o.owner||'';
+    document.getElementById('modal-obj-h').textContent = 'Editar Objetivo';
+    om('modal-obj');
+}
+function saveObjective() {
+    const id = document.getElementById('obj-id').value;
+    const title = document.getElementById('obj-title').value.trim();
+    if (!title) { alert('O título é obrigatório.'); return; }
+    if (id) {
+        const o = D.objectives.find(x => x.id===id);
+        if (o) { o.title=title; o.description=document.getElementById('obj-desc').value.trim(); o.owner=document.getElementById('obj-owner').value.trim(); }
+    } else {
+        D.objectives.push({ id:'obj_'+Date.now(), title, description:document.getElementById('obj-desc').value.trim(), owner:document.getElementById('obj-owner').value.trim(), keyResults:[], initiatives:[] });
+    }
+    persist(); cm('modal-obj'); render();
+}
+function confirmDeleteObj(id) {
+    const o = D.objectives.find(x => x.id===id);
+    document.getElementById('confirm-msg').textContent = `Excluir o objetivo "${o?.title}"? Todos os KRs e iniciativas serão removidos.`;
+    pendingConfirm = () => { D.objectives=D.objectives.filter(x => x.id!==id); persist(); cm('modal-confirm'); currentView='overview'; render(); };
+    om('modal-confirm');
+}
+
+// ── KR CRUD ──
+function buildHistInputs(hist) {
+    const c = document.getElementById('history-inputs'); c.innerHTML='';
+    MONTHS.forEach((m,i) => {
+        const w=document.createElement('div');
+        const v=hist[i]!==null&&hist[i]!==undefined?hist[i]:'';
+        w.innerHTML=`<div style="font-size:0.65rem;font-weight:700;color:var(--muted);text-align:center;margin-bottom:0.2rem;">${m}</div>
+            <input type="number" step="any" placeholder="—" value="${v}" data-m="${i}" style="text-align:center;padding:0.3rem 0.2rem;font-size:0.78rem;">`;
+        c.appendChild(w);
+    });
+}
+function openAddKRModal(oid) {
+    document.getElementById('kr-obj-id').value=oid; document.getElementById('kr-id').value='';
+    ['kr-title','kr-unit','kr-target'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('kr-type').value='global'; document.getElementById('kr-inverse').checked=false;
+    document.getElementById('modal-kr-h').textContent='Novo Resultado-Chave';
+    buildHistInputs(new Array(12).fill(null)); om('modal-kr');
+}
+function openEditKRModal(oid,kid) {
+    const o=D.objectives.find(x=>x.id===oid), kr=o?.keyResults.find(k=>k.id===kid); if(!kr) return;
+    document.getElementById('kr-obj-id').value=oid; document.getElementById('kr-id').value=kid;
+    document.getElementById('kr-title').value=kr.title; document.getElementById('kr-type').value=kr.type;
+    document.getElementById('kr-unit').value=kr.unit; document.getElementById('kr-target').value=kr.target;
+    document.getElementById('kr-inverse').checked=!!kr.inverse;
+    document.getElementById('modal-kr-h').textContent='Editar Resultado-Chave';
+    buildHistInputs(kr.history); om('modal-kr');
+}
+function saveKR() {
+    const oid=document.getElementById('kr-obj-id').value, kid=document.getElementById('kr-id').value;
+    const title=document.getElementById('kr-title').value.trim();
+    if(!title){alert('O título é obrigatório.');return;}
+    const history=Array.from(document.querySelectorAll('#history-inputs input[data-m]')).map(el=>el.value!==''?parseFloat(el.value):null);
+    const o=D.objectives.find(x=>x.id===oid); if(!o) return;
+    const d={title,type:document.getElementById('kr-type').value,unit:document.getElementById('kr-unit').value.trim(),target:parseFloat(document.getElementById('kr-target').value)||0,inverse:document.getElementById('kr-inverse').checked,history};
+    if(kid){const kr=o.keyResults.find(k=>k.id===kid);if(kr)Object.assign(kr,d);}
+    else o.keyResults.push({id:'kr_'+Date.now(),...d});
+    persist(); cm('modal-kr'); render(); showView(`obj-${oid}`,false);
+}
+function confirmDeleteKR(oid,kid) {
+    const o=D.objectives.find(x=>x.id===oid), kr=o?.keyResults.find(k=>k.id===kid);
+    document.getElementById('confirm-msg').textContent=`Excluir o resultado-chave "${kr?.title}"?`;
+    pendingConfirm=()=>{o.keyResults=o.keyResults.filter(k=>k.id!==kid);persist();cm('modal-confirm');render();showView(`obj-${oid}`,false);};
+    om('modal-confirm');
+}
+
+// ── Initiative CRUD ──
+function openAddInitModal(oid) {
+    document.getElementById('init-obj-id').value=oid; document.getElementById('init-id').value='';
+    ['init-title','init-owner','init-desc'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('init-deadline').value=''; document.getElementById('init-status').value='not_started';
+    document.getElementById('modal-init-h').textContent='Nova Iniciativa';
+    document.getElementById('btn-del-init').style.display='none'; om('modal-init');
+}
+function openEditInitModal(oid,iid) {
+    const o=D.objectives.find(x=>x.id===oid), ini=o?.initiatives.find(i=>i.id===iid); if(!ini) return;
+    document.getElementById('init-obj-id').value=oid; document.getElementById('init-id').value=iid;
+    document.getElementById('init-title').value=ini.title; document.getElementById('init-owner').value=ini.owner||'';
+    document.getElementById('init-deadline').value=ini.deadline||''; document.getElementById('init-status').value=ini.status;
+    document.getElementById('init-desc').value=ini.description||'';
+    document.getElementById('modal-init-h').textContent='Editar Iniciativa';
+    document.getElementById('btn-del-init').style.display='flex'; om('modal-init');
+}
+function saveInit() {
+    const oid=document.getElementById('init-obj-id').value, iid=document.getElementById('init-id').value;
+    const title=document.getElementById('init-title').value.trim();
+    if(!title){alert('O título é obrigatório.');return;}
+    const o=D.objectives.find(x=>x.id===oid); if(!o) return;
+    const d={title,owner:document.getElementById('init-owner').value.trim(),deadline:document.getElementById('init-deadline').value,status:document.getElementById('init-status').value,description:document.getElementById('init-desc').value.trim()};
+    if(iid){const ini=o.initiatives.find(i=>i.id===iid);if(ini)Object.assign(ini,d);}
+    else o.initiatives.push({id:'init_'+Date.now(),...d,reports:[]});
+    persist(); cm('modal-init'); render(); showView(`obj-${oid}`,false);
+}
+function deleteInit() {
+    const oid=document.getElementById('init-obj-id').value, iid=document.getElementById('init-id').value;
+    const o=D.objectives.find(x=>x.id===oid), ini=o?.initiatives.find(i=>i.id===iid);
+    cm('modal-init');
+    document.getElementById('confirm-msg').textContent=`Excluir a iniciativa "${ini?.title}"?`;
+    pendingConfirm=()=>{o.initiatives=o.initiatives.filter(i=>i.id!==iid);persist();cm('modal-confirm');render();showView(`obj-${oid}`,false);};
+    om('modal-confirm');
+}
+function runConfirm() { if(pendingConfirm){pendingConfirm();pendingConfirm=null;} }
+
+// ── Reports ──
+function openReportsModal(oid,iid) {
+    const o=D.objectives.find(x=>x.id===oid), ini=o?.initiatives.find(i=>i.id===iid); if(!ini) return;
+    if(!ini.reports) ini.reports=[];
+    document.getElementById('rep-obj-id').value=oid;
+    document.getElementById('rep-init-id').value=iid;
+    document.getElementById('rep-init-name').textContent=ini.title;
+    document.getElementById('rep-author').value='';
+    document.getElementById('rep-action').value='';
+    document.getElementById('rep-date').value=new Date().toISOString().split('T')[0];
+    renderReportTimeline(ini);
+    om('modal-reports');
+}
+function renderReportTimeline(ini) {
+    const tl=document.getElementById('rep-timeline');
+    const reports=(ini.reports||[]).slice().reverse();
+    if(!reports.length){
+        tl.innerHTML=`<div class="report-empty">${ic('inbox',22,'display:block;margin:0 auto 0.75rem;opacity:0.3;')}Nenhum reporte ainda.<br>Use o formulário acima para registrar o primeiro.</div>`;
+    } else {
+        tl.innerHTML=reports.map(r=>{
+            const d=r.date?new Date(r.date+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'}):'—';
+            return `<div class="report-item">
+                <div class="report-date-author">
+                    <span style="display:flex;align-items:center;gap:0.4rem;">${ic('user',11)} ${r.author||'—'} &nbsp;·&nbsp; ${ic('calendar',11)} ${d}</span>
+                    <button class="rep-btn-del" onclick="deleteReport('${ini.id}','${r.id}')">${ic('x',10)} remover</button>
+                </div>
+                <div class="report-action">${r.action.replace(/\n/g,'<br>')}</div>
+            </div>`;
+        }).join('');
+    }
+    requestAnimationFrame(() => lucide.createIcons());
+}
+function addReport() {
+    const oid=document.getElementById('rep-obj-id').value, iid=document.getElementById('rep-init-id').value;
+    const author=document.getElementById('rep-author').value.trim();
+    const action=document.getElementById('rep-action').value.trim();
+    const date=document.getElementById('rep-date').value;
+    if(!action){alert('Descreva a ação realizada.');return;}
+    const o=D.objectives.find(x=>x.id===oid), ini=o?.initiatives.find(i=>i.id===iid); if(!ini) return;
+    if(!ini.reports) ini.reports=[];
+    ini.reports.push({id:'rep_'+Date.now(),date,author,action});
+    persist();
+    document.getElementById('rep-author').value='';
+    document.getElementById('rep-action').value='';
+    document.getElementById('rep-date').value=new Date().toISOString().split('T')[0];
+    renderReportTimeline(ini);
+}
+function deleteReport(iid,rid) {
+    const oid=document.getElementById('rep-obj-id').value;
+    const o=D.objectives.find(x=>x.id===oid), ini=o?.initiatives.find(i=>i.id===iid); if(!ini) return;
+    ini.reports=(ini.reports||[]).filter(r=>r.id!==rid);
+    persist(); renderReportTimeline(ini);
+}
+
+// ── KR Chart ──
+function openKRChart(oid,kid) {
+    const o=D.objectives.find(x=>x.id===oid), kr=o?.keyResults.find(k=>k.id===kid); if(!kr) return;
+    const idxs=kr.history.map((v,i)=>v!==null&&v!==undefined?i:null).filter(i=>i!==null);
+    document.getElementById('chart-title').textContent=kr.title;
+    document.getElementById('chart-meta').textContent=`Meta: ${kr.target} ${kr.unit} · ${kr.type==='global'?'Global':'Tático'}${kr.inverse?' · menor é melhor':''}`;
+    const ctx=document.getElementById('kr-chart').getContext('2d');
+    if(krChart) krChart.destroy();
+    krChart=new Chart(ctx,{
+        type:'line',
+        data:{
+            labels:idxs.map(i=>MONTHS[i]),
+            datasets:[
+                {label:`${kr.title} (${kr.unit})`,data:idxs.map(i=>kr.history[i]),borderColor:'#003c61',backgroundColor:'rgba(0,60,97,0.06)',borderWidth:2.5,pointRadius:5,pointBackgroundColor:'#003c61',fill:true,tension:0.3},
+                {label:`Meta (${kr.target} ${kr.unit})`,data:idxs.map(()=>kr.target),borderColor:'#c1aa57',borderWidth:2,borderDash:[7,4],pointRadius:0,fill:false}
+            ]
+        },
+        options:{
+            responsive:true,
+            plugins:{legend:{position:'top',labels:{font:{size:11,family:"'Inter',sans-serif"},padding:12}},tooltip:{mode:'index',intersect:false}},
+            scales:{
+                y:{grid:{color:'#f0ece4'},ticks:{font:{size:11,family:"'Inter',sans-serif"}}},
+                x:{grid:{display:false},ticks:{font:{size:11,family:"'Inter',sans-serif"}}}
+            }
+        }
+    });
+    om('modal-chart');
+}
+
+// ── Modal helpers ──
+function om(id)  { document.getElementById(id).style.display='flex'; document.body.style.overflow='hidden'; requestAnimationFrame(()=>lucide.createIcons()); }
+function cm(id)  { document.getElementById(id).style.display='none'; document.body.style.overflow=''; }
+function oClose(e,id) { if(e.target===e.currentTarget) cm(id); }
+
+document.addEventListener('DOMContentLoaded', render);
+</script>
+</body>
+</html>
